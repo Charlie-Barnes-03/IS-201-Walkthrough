@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Outback Croc - The Aussie Snake Game</title>
+    <style>
+        /* --- CSS STYLES --- */
+        body {
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f0e6c8; /* Light sandy background */
+            flex-direction: column;
+            color: #382810;
+        }
+
+        #game-container {
+            border: 15px solid #a0522d; /* Brown border for a wooden/outback feel */
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+            background-color: #d1b88e; /* Lighter sand inside the border */
+            padding: 20px;
+            text-align: center;
+        }
+
+        #game-board {
+            display: grid;
+            background-color: #c9a473; /* Outback dusty ground */
+            border: 5px solid #8b4513; /* Darker brown inner edge */
+            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.3);
+        }
+
+        .cell {
+            width: 100%;
+            height: 100%;
+            box-sizing: border-box;
+            background-color: #c9a473;
+        }
+
+        .croc-head {
+            background-color: #4a6c4a; /* Crocodile green */
+            border: 1px solid #3d593d;
+            border-radius: 3px;
+            font-size: 1.2em; /* Bigger icon for the head */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .croc-body {
+            background-color: #5d815d; /* Slightly lighter green for the body/tail */
+            border: 1px solid #4a6c4a;
+            border-radius: 2px;
+        }
+
+        .food {
+            background-color: transparent;
+            font-size: 1em;
+            text-align: center;
+            line-height: 1;
+            /* Animation to make the kangaroo look like it's hopping */
+            animation: bounce 0.5s infinite alternate;
+        }
+        
+        @keyframes bounce {
+            from { transform: translateY(0); }
+            to { transform: translateY(-3px); }
+        }
+
+        #controls {
+            margin-top: 15px;
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            align-items: center;
+            padding: 10px;
+            background-color: #f7d794; /* Yellowish control panel */
+            border-radius: 5px;
+            border: 2px solid #a0522d;
+        }
+
+        #speed-select, #start-button {
+            padding: 8px 15px;
+            border-radius: 5px;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.2s;
+        }
+
+        #speed-select {
+            background-color: #fff;
+        }
+
+        #start-button {
+            background-color: #4a6c4a; /* Croc color for the button */
+            color: white;
+        }
+
+        #start-button:hover {
+            background-color: #3d593d;
+        }
+
+        #score-panel {
+            font-size: 1.5em;
+            font-weight: bold;
+            margin-bottom: 10px;
+            padding: 5px 15px;
+            background-color: #fff;
+            border-radius: 5px;
+            border: 2px dashed #a0522d;
+        }
+
+        #game-over-message {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            font-size: 2em;
+            border-radius: 10px;
+            z-index: 10;
+            display: none; /* Hidden by default */
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Outback Croc 🇦🇺</h1>
+    </header>
+
+    <div id="game-container">
+        <div id="score-panel">Score: <span id="score">0</span></div>
+        <div id="game-board">
+            <div id="game-over-message">
+                <h2>CRIKEY! GAME OVER!</h2>
+                <p>Your croc got stuck in the billabong.</p>
+                <p>Final Score: <span id="final-score">0</span></p>
+                <button onclick="window.location.reload()" style="padding: 10px 20px; font-size: 1em; margin-top: 15px; cursor: pointer;">Play Again, Mate!</button>
+            </div>
+        </div>
+        <div id="controls">
+            <label for="speed-select">Speed:</label>
+            <select id="speed-select">
+                <option value="150">Slow (Wombat)</option>
+                <option value="100" selected>Medium (Kangaroo)</option>
+                <option value="50">Fast (Dingo)</option>
+                <option value="25">Extreme (Taipan)</option>
+            </select>
+            <button id="start-button">Start Game</button>
+        </div>
+    </div>
+
+    <p style="margin-top: 20px; font-size: 0.9em; color: #555;">Use **Arrow Keys** or **W, A, S, D** to move the croc.</p>
+
+    <script>
+        /* --- JAVASCRIPT LOGIC --- */
+
+        const board = document.getElementById('game-board');
+        const scoreDisplay = document.getElementById('score');
+        const finalScoreDisplay = document.getElementById('final-score');
+        const gameOverMessage = document.getElementById('game-over-message');
+        const startButton = document.getElementById('start-button');
+        const speedSelect = document.getElementById('speed-select');
+
+        // --- Game Constants ---
+        const GRID_SIZE = 20;
+        let gameInterval;
+        let gameSpeed = 100; // Default medium speed (ms)
+        let isGameOver = false;
+
+        // --- Game State ---
+        let croc = [{ x: 10, y: 10 }]; // Head starts in the center
+        let food = { x: 0, y: 0 };
+        let direction = { x: 1, y: 0 }; // Initial movement: right
+        let nextDirection = { x: 1, y: 0 }; // Buffer for next move (prevents 180-degree turn)
+        let score = 0;
+        let isGameRunning = false;
+        let isPaused = false;
+
+        // --- Setup Functions ---
+        
+        function setupBoard() {
+            board.style.gridTemplateColumns = `repeat(${GRID_SIZE}, 1fr)`;
+            board.style.gridTemplateRows = `repeat(${GRID_SIZE}, 1fr)`;
+            board.style.width = `${GRID_SIZE * 20}px`; // Size the board cells (e.g., 20px each)
+            board.style.height = `${GRID_SIZE * 20}px`;
+            
+            // Clear the board (important for restarts)
+            board.innerHTML = '';
+            
+            // Create cells
+            for (let i = 0; i < GRID_SIZE * GRID_SIZE; i++) {
+                const cell = document.createElement('div');
+                cell.classList.add('cell');
+                board.appendChild(cell);
+            }
+        }
+
+        function getCell(x, y) {
+            if (x >= 0 && x < GRID_SIZE && y >= 0 && y < GRID_SIZE) {
+                return board.children[y * GRID_SIZE + x];
+            }
+            return null;
+        }
+
+        function placeFood() {
+            let newFood;
+            do {
+                newFood = {
+                    x: Math.floor(Math.random() * GRID_SIZE),
+                    y: Math.floor(Math.random() * GRID_SIZE)
+                };
+            } while (croc.some(segment => segment.x === newFood.x && segment.y === newFood.y));
+            
+            food = newFood;
+        }
+
+        // --- Game Logic ---
+        
+        function update() {
+            if (isGameOver || isPaused) return;
+
+            // Update direction from the buffer
+            direction = nextDirection;
+            
+            // Calculate new head position
+            const head = croc[0];
+            const newHead = { x: head.x + direction.x, y: head.y + direction.y };
+
+            // 1. Check for **Collision** (Wall or Self)
+            if (newHead.x < 0 || newHead.x >= GRID_SIZE || 
+                newHead.y < 0 || newHead.y >= GRID_SIZE ||
+                croc.slice(1).some(segment => segment.x === newHead.x && segment.y === newHead.y)) {
+                
+                endGame();
+                return;
+            }
+
+            // Add new head
+            croc.unshift(newHead);
+
+            // 2. Check for **Food**
+            if (newHead.x === food.x && newHead.y === food.y) {
+                // Croc eats the kangaroo!
+                score++;
+                scoreDisplay.textContent = score;
+                placeFood(); // Place new food
+                // NOTE: We do NOT remove the tail, allowing the croc to grow!
+            } else {
+                // No food, remove the tail segment
+                croc.pop();
+            }
+
+            // 3. **Render** the game state
+            render();
+        }
+
+        function render() {
+            // Clear the entire board of croc/food
+            for (let i = 0; i < GRID_SIZE * GRID_SIZE; i++) {
+                const cell = board.children[i];
+                cell.className = 'cell'; // Reset to base cell class
+                cell.textContent = '';
+            }
+
+            // Draw the Croc
+            croc.forEach((segment, index) => {
+                const cell = getCell(segment.x, segment.y);
+                if (cell) {
+                    if (index === 0) {
+                        cell.classList.add('croc-head');
+                        cell.textContent = '🐊'; // Crocodile emoji for the head
+                    } else {
+                        cell.classList.add('croc-body');
+                    }
+                }
+            });
+
+            // Draw the Food
+            const foodCell = getCell(food.x, food.y);
+            if (foodCell) {
+                foodCell.classList.add('food');
+                foodCell.textContent = '🦘'; // Kangaroo emoji for the food
+            }
+        }
+
+        // --- Control Functions ---
+
+        function handleKeydown(event) {
+            if (!isGameRunning) return;
+            
+            const key = event.key;
+            let newDir = { x: direction.x, y: direction.y };
+
+            switch (key) {
+                case 'ArrowUp':
+                case 'w':
+                    newDir = { x: 0, y: -1 };
+                    break;
+                case 'ArrowDown':
+                case 's':
+                    newDir = { x: 0, y: 1 };
+                    break;
+                case 'ArrowLeft':
+                case 'a':
+                    newDir = { x: -1, y: 0 };
+                    break;
+                case 'ArrowRight':
+                case 'd':
+                    newDir = { x: 1, y: 0 };
+                    break;
+                case ' ': // Spacebar for pause
+                    togglePause();
+                    return;
+                default:
+                    return; // Ignore other keys
+            }
+
+            // Prevent the croc from turning 180 degrees instantly (e.g., right then immediately left)
+            // It's only valid if the new direction is NOT the opposite of the current direction
+            if (newDir.x !== -direction.x || newDir.y !== -direction.y) {
+                nextDirection = newDir;
+            }
+        }
+
+        function startGame() {
+            if (isGameRunning) return; // Prevent multiple starts
+
+            // Reset state
+            croc = [{ x: 10, y: 10 }];
+            direction = { x: 1, y: 0 };
+            nextDirection = { x: 1, y: 0 };
+            score = 0;
+            scoreDisplay.textContent = score;
+            isGameOver = false;
+            isGameRunning = true;
+            gameOverMessage.style.display = 'none';
+            
+            // Set speed
+            gameSpeed = parseInt(speedSelect.value);
+
+            placeFood();
+            render();
+
+            // Start the main game loop
+            gameInterval = setInterval(update, gameSpeed);
+            startButton.textContent = 'Pause Game (Space)';
+            startButton.onclick = togglePause;
+        }
+
+        function togglePause() {
+            isPaused = !isPaused;
+            if (isPaused) {
+                clearInterval(gameInterval);
+                startButton.textContent = 'Resume Game';
+            } else {
+                gameInterval = setInterval(update, gameSpeed);
+                startButton.textContent = 'Pause Game (Space)';
+            }
+        }
+
+        function endGame() {
+            isGameOver = true;
+            isGameRunning = false;
+            clearInterval(gameInterval);
+            finalScoreDisplay.textContent = score;
+            gameOverMessage.style.display = 'flex';
+            startButton.textContent = 'Start Game';
+            startButton.onclick = startGame;
+        }
+
+        // --- Event Listeners and Initialization ---
+
+        document.addEventListener('keydown', handleKeydown);
+        startButton.onclick = startGame;
+
+        // Initialize the board structure when the page loads
+        setupBoard();
+        
+    </script>
+</body>
+</html>

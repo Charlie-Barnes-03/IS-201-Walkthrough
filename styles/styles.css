@@ -1,0 +1,59 @@
+body{
+background-color: antiquewhite;
+color: purple
+}
+
+h1{
+    font-size: 36px;
+    text-align:center;
+}
+
+h2{
+    text-decoration: underline;
+    font-style: italic;
+    font-weight: bold;
+}
+
+p{
+    color:black;
+}
+
+#yellowparagraph{
+    color:yellow;
+}
+
+.pretty{
+    font-family: 'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;
+}
+
+.ugly{
+    font-family: Georgia, 'Times New Roman', Times, serif;
+}
+
+.header{
+    z-index: 10;
+}
+
+.common{
+    background-color:aliceblue;
+    border: 2px solid black;
+    position: absolute;
+    left: 600px
+}
+
+.left{
+    top: 115px;
+    left: 15px;
+    width: 400px;
+    bottom: 40px;
+}
+
+.footer{
+    bottom: 50px;
+    height: 40px;
+    left: 15px;
+    right: 25;
+    position: fixed;
+    background-color:aliceblue;
+    border: 2px solid black;
+}
